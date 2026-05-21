@@ -1,5 +1,18 @@
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Ruff Linter Cache
+.ruff_cache/
+
+# Python Bytecode & Build Artifacts
 __pycache__/
 *.egg-info/
-*.egg
 dist/
 build/
+
+# Project Specific
+traces/
+.env
+.DS_Store
