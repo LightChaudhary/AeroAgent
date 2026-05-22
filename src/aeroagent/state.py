@@ -36,7 +36,7 @@ class AgentState(BaseModel):
     error_message: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    def add_step(self, action: Literal["pending", "running", "completed", "error"], tool_name: str | None = None, **kwargs: Any) -> None: 
+    def add_step(self, action: Literal["think", "call_tool", "finalize", "error"], tool_name: str | None = None, **kwargs: Any) -> None: 
         """Append a new step to the state trace."""
         step = AgentStep(
             step_id = len(self.steps) + 1,
