@@ -19,7 +19,29 @@ class ToolSchema(BaseModel):
         return v.lower()
 
 class AgentStep(BaseModel):
-    pass
+    """Represents a single execution step in the agent loop."""
+    step_id: int
+    action: Literal["think", "call_tool", "finalize", "error"]
+    tool_name: str | None = None
+    tool_input: dict[str, Any] | None = None
+    output: str | None = None
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class AgentState(BaseModel):
-    pass
+    """State tracking for the async agent loop."""
+    prompt: str
+    status: Literal["pending", "running", "completed", "error"] = "pending"
+    steps: list[AgentStep] = Field(default_factory=list)
+    final_answer: str | None = None
+    error_message: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    def add_step(self, action: Literal["pending", "running", "completed", "error"], tool_name: str | None = None, **kwargs: Any) -> None: 
+        """Append a new step to the state trace."""
+        step = AgentStep(
+            step_id = len(self.steps) + 1,
+            action = action,
+            tool_name = tool_name,
+            **kwargs
+        )
+        self.steps.append(step)
