@@ -10,4 +10,14 @@ DEFAULT_MODEL = "qwen2.5:1.5b"
 
 class LLMCLient:
     """Async HTTP client for local Ollama instances."""
-    pass
+
+    def __init__(self, model: str = DEFAULT_MODEL, base_url: str = OLLAMA_BASE_URL, timeout: float = 30.0,
+                 max_retries: int = 2,):
+        self.model = model
+        self.base_url = base_url
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self._client = httpx.AsyncClient(timeout=self.timeout)
+    
+    async def close(self) -> None:
+        await self._client.aclose()
