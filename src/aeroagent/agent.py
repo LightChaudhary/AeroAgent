@@ -51,7 +51,7 @@ class Agent:
                     state.status = "error"
                     break
 
-                action = decision["action"]
+                action = decision.pop("action")
                 state.add_step(action, **decision)
 
                 # 2. Execute Action
@@ -87,6 +87,6 @@ class Agent:
         
         if state.status == "running":
             state.status = "completed"
-            state.final_answer = state.final_answer or "Max stepss reached. Here is the current state: " + state.model_dump_json()
+            state.final_answer = state.final_answer or "Max steps reached. Here is the current state: " + state.model_dump_json()
 
         return state 

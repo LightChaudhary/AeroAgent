@@ -3,7 +3,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Literal
-from pydantic import BaseModel, field_validator, Field
+from pydantic import BaseModel, field_validator, Field, ConfigDict
 
 class ToolSchema(BaseModel):
     """Defines a callable tool with strict validation."""
@@ -20,6 +20,7 @@ class ToolSchema(BaseModel):
 
 class AgentStep(BaseModel):
     """Represents a single execution step in the agent loop."""
+    model_config = ConfigDict(extra="allow")
     step_id: int
     action: Literal["think", "call_tool", "finalize", "error"]
     tool_name: str | None = None
