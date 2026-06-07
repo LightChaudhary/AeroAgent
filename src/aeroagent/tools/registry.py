@@ -10,7 +10,7 @@ from ..state import ToolSchema
 class ToolRegistry:
     """Registers and executes tools with strict Pydantic validation."""
 
-    def __int__(self):
+    def __init__(self):
         self._tools : dict[str, dict[str, Any]] = {}
     
     def register(self, name: str, description: str, parameters: dict[str, Any]):
