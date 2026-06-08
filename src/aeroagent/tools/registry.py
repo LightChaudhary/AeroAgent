@@ -29,7 +29,7 @@ class ToolRegistry:
         return tool["schema"] if tool else None
     
     def get_all_schemas(self) -> list[ToolSchema]:
-        "Return schemas for all registered tools."
+        """Return schemas for all registered tools."""
         return [t["schema"] for t in self._tools.values()]
     
     async def execute(self, name: str, **kwargs: Any) -> Any:
