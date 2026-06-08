@@ -29,6 +29,9 @@ class LLMClient:
            "messages": messages,
            "temperature": temperature,
            "max_tokens": max_tokens,
+           "response_format":{
+               "type": "json_object"
+           }
        }
 
        for attempt in range(1, self.max_retries + 1):
@@ -45,13 +48,28 @@ class LLMClient:
             
     @staticmethod
     def extract_json(text: str) -> dict[str, Any] | None:
-        """Safely parse JSON from LLM output, handling markdown wrappers."""
+        """Extract JSON from model output."""
+
         text = text.strip()
+
+        # Remove markdown fences
         if text.startswith("```"):
             lines = text.split("\n")
-            if lines[0].startswith("```") and lines[-1].startswith("```"):
-               text = "\n".join(lines[1:-1]).strip()
+            if len(lines) >= 3:
+                text = "\n".join(lines[1:-1]).strip()
         try:
             return json.loads(text)
         except json.JSONDecodeError:
-               return None
+               pass
+        
+        # Fallback: extract first JSON object
+        start = text.find("{")
+        end = text.rfind("}")
+
+        if start != -1 and end != -1 and end > start:
+            try:
+                return json.loads(text[start:end + 1])
+            except json.JSONDecodeError:
+                pass
+        
+        return None
