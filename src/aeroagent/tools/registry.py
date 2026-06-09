@@ -14,7 +14,7 @@ class ToolRegistry:
         self._tools : dict[str, dict[str, Any]] = {}
     
     def register(self, name: str, description: str, parameters: dict[str, Any]):
-        """Decorator to registor a function as an agent tool."""
+        """Decorator to register a function as an agent tool."""
         def decorator(func: Callable[..., Any]):
             self._tools[name] = {
                 "schema": ToolSchema(name=name, description=description, parameters=parameters),
@@ -41,17 +41,11 @@ class ToolRegistry:
         schema = tool["schema"]
         func = tool["func"]
 
-        # TODO (Phase 2): Build a dynamic Pydantic model from schema.parameters
+        # TODO (Phase 2): Build a dynamic Pydantic model from schema.parameters and validate kwargs against it.
+        # Currently a no-op - kwargs pass through unvalidated. Safe for Phase 1 since search.py has its own type hints.
 
         # Validate inputs against the tool's parameter schema
-        try:
-            # Create a dynamic Pydantic model for validation
-            #ParamModel = schema.parameters # Assuming parameters is a dict of Pydantic Field definitions or similar
-            # for simplicity in Phase 1, we'll do basic type checking or rely on the func's own validation
-            # A more advanced version would dynamically build a Pydantic model here.
-            validated_kwargs = kwargs
-        except Exception as e:
-            raise ValueError(f"Invalid arguments for tool '{name}': {e}")
+        validated_kwargs = kwargs
         
         # Execute (handle both sync ana=d async functions)
         result = func(**validated_kwargs)
