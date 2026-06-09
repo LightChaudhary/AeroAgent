@@ -1,11 +1,18 @@
+-e git+https://github.com/LightChaudhary/AeroAgent.git@603c12d1d8026417e48cf8925a2a392bac2244c7#egg=aeroagent
 annotated-types==0.7.0
 anyio==4.13.0
+brotli==1.2.0
 certifi==2026.4.22
 click==8.4.0
+ddgs==9.14.4
 duckduckgo_search==8.1.1
+fake-useragent==2.2.0
 h11==0.16.0
+h2==4.3.0
+hpack==4.1.0
 httpcore==1.0.9
 httpx==0.28.1
+hyperframe==6.1.0
 idna==3.15
 iniconfig==2.3.0
 lxml==6.1.1
@@ -18,6 +25,11 @@ pydantic==2.13.4
 pydantic_core==2.46.4
 Pygments==2.20.0
 pytest==9.0.3
+pytest-asyncio==1.3.0
 rich==15.0.0
+ruff==0.15.13
+setuptools==82.0.1
+socksio==1.0.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
+wheel==0.47.0

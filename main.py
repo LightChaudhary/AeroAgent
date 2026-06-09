@@ -22,8 +22,8 @@ async def run_agent_cli(prompt: str) -> None:
     console.print(Panel(f"[cyan] Starting Agent with prompt:[/cyan]\n{prompt}", border_style="blue"))
 
     # 1. Initialize components
-    # Note: Ensure you have pulled this model via 'ollama pull qwen2.5:1.5b'
-    llm = LLMClient(model="qwen2.5:1.5b")
+    # Note: Ensure you have pulled this model via 'ollama pull llama3.2:3b'
+    llm = LLMClient(model="llama3.2:3b")
     tools = {"web_search": web_search}
     agent = Agent(llm_client=llm, tools=tools, max_steps=4)
 
@@ -33,7 +33,7 @@ async def run_agent_cli(prompt: str) -> None:
         state = await agent.run(prompt)
 
         # 3. Trace the execution for debugging/observability
-        trace_path = tracer.save_trace(state, metadata={"model": "qwen2.5:1.5b", "interface": "cli"})
+        trace_path = tracer.save_trace(state, metadata={"model": "llama3.2:3b", "interface": "cli"})
         console.print(f"[dim] Trace saved to: {trace_path}[/dim]")
 
         # 4. Display results
