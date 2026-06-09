@@ -41,10 +41,12 @@ class ToolRegistry:
         schema = tool["schema"]
         func = tool["func"]
 
+        # TODO (Phase 2): Build a dynamic Pydantic model from schema.parameters
+
         # Validate inputs against the tool's parameter schema
         try:
             # Create a dynamic Pydantic model for validation
-            ParamModel = schema.parameters # Assuming parameters is a dict of Pydantic Field definitions or similar
+            #ParamModel = schema.parameters # Assuming parameters is a dict of Pydantic Field definitions or similar
             # for simplicity in Phase 1, we'll do basic type checking or rely on the func's own validation
             # A more advanced version would dynamically build a Pydantic model here.
             validated_kwargs = kwargs
