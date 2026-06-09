@@ -10,10 +10,17 @@ from .llm import LLMClient
 class Agent:
     """Async AI agent that plans, routes to tools, and tracks state."""
     
-    def __init__(self, llm_client: LLMClient, tools: dict[str, Callable[..., Any]] | None = None, max_steps: int = 5):
+    def __init__(
+            self,
+            llm_client: LLMClient,
+            tools: dict[str, Callable[..., Any]] | None = None,
+            max_steps: int = 5,
+            max_tool_calls: int = 1,
+    ): 
         self.llm = llm_client
         self.tools = tools or {}
         self.max_steps = max_steps
+        self.max_tool_calls = max_tool_calls
 
     async def run(self, prompt: str) -> AgentState:
         """Execute the agent loop for a given prompt."""
@@ -21,29 +28,43 @@ class Agent:
         state.add_step("think", output="Initializing agent loop...")
 
         system_prompt = (
-            "You are a helpful AI assistant. You MUST follow this exact workflow:\n\n"
-            "STEP 1: Use 'call_tool' action with web_search for ANY factual/current question.\n"
-            "STEP 2: After receiving tool output, use 'finalize' action with the final_answer.\n\n"
-            "CRITICAL RULES:\n"
-            "- NEVER use 'think' action more than once.\n"
-            "- Never answer from memory. ALWAYS use web_search first.\n"
-            "- 'finalize' action REQUIRES a 'final_answer' field.\n"
-            "- 'call_tool' action REQUIRES 'tool_name' and 'tool_input' fields.\n"
-            "- In 'finalize', your final_answer MUST be based ONLY on the tool output in the current state.\n"
-            "- If the tool output does not contain a clear answer, say: 'The search did not return a definitive answer.'\n"
-            "- NEVER use your own memory for facts, dates, or versions.\n\n"
-            f"Available tools: {', '.join(self.tools.keys())}\n"
-            "JSON Schema examples:\n"
-            '{"action": "call_tool", "tool_name": "web_search", "tool_input": {"query": "Python latest stable release version date 2026"}}\n'
-            '{"action": "finalize", "final_answer": "Based on search results..."}\n'
+            "You are a helpful AI assistant. Follow this EXACT two-step workflow:\n\n"
+            "STEP 1: If Tool Results is 'None yet', call web_search ONCE.\n"
+            "STEP 2: If Tool Results contains ANY data, you MUST use 'finalize' immediately.\n\n"
+            "CRITICAL: Once you see Tool Results, your ONLY valid response is:\n"
+            '{"action": "finalize", "final_answer": "..."}\n\n'
+            "NEVER search again if you already have results.\n"
+            "NEVER repeat a search query that has already been used.\n\n"
+            f"Available tools: {', '.join(self.tools.keys())}\n\n"
+            "JSON schemas:\n"
+            '{"action": "call_tool", "tool_name": "web_search", "tool_input": {"query": "your query"}}\n'
+            '{"action": "finalize", "final_answer": "your answer based on results"}\n'
         )
 
         for step_num in range(1, self.max_steps + 1):
+            # Hard cap: force finalize if too many tool calls have been made
+            tool_steps = [s for s in state.steps if s.action == "call_tool"]
+            if len(tool_steps) >= self.max_tool_calls:
+                # last = tool_steps[-1]
+                # state.final_answer = last.output
+                # state.status = "completed"
+                break
+
+            tool_results = "\n".join(
+                f"Tool '{s.tool_name}' returned: {s.output[:2000]}"
+                for s in state.steps 
+                if s.action == "call_tool"
+            )
             messages = [
                 {"role": "system", "content": system_prompt},
                 {
                     "role": "user",
-                    "content": f"Current State: {state.model_dump_json()}\nUser Prompt: {prompt}"
+                    "content": (
+                        f"User Prompt: {prompt}\n\n"
+                        f"Tools already called: {[s.tool_name for s in state.steps if s.action == 'call_tool']}\n\n"
+                        f"Tool Results: \n{tool_results or 'None yet'}\n\n"
+                        "Now decide your next action."
+                    )
                 },
             ]
 
@@ -84,8 +105,10 @@ class Agent:
                             state.final_answer = last_tool_step.output
                             state.status = "completed"
                         else:
-                            state.add_step("error", output=f"Failed to parse LLM JSON after retry.\nOriginal: {content}\nRetry: {retry_content}")
-                            state.status = "error"
+                            # Treat raw plain text as final answer instead of error
+                            state.final_answer = content
+                            state.status = "completed"
+                            state.add_step("finalize", output=content)
                         break
 
                 # DEFENSIVE PARSING: Infer action if the small model forgot the 'action' key
@@ -110,12 +133,39 @@ class Agent:
                     if isinstance(tool_input, str):
                         tool_input = {"query": tool_input}
 
+                    # Block duplicate queries 
+                    already_searched = {
+                        s.tool_input.get("query", "")
+                        for s in state.steps
+                        if s.action == "call_tool" and s.tool_name == tool_name
+                    }
+                    new_query = tool_input.get("query", "") 
+                    if new_query in already_searched:
+                        # Force finalize instead
+                        #last = next((s for s in reversed(state.steps) if s.action == "call_tool"), None)
+                        #state.final_answer = last.output if last else "No results found."
+                        #state.status = "completed"
+                        break
+
                     if tool_name in self.tools:
                         try:
                             result = self.tools[tool_name](**tool_input)
                             if asyncio.iscoroutine(result):
                                 result = await result
-                            state.add_step("call_tool", tool_name=tool_name, tool_input=tool_input, output=str(result))
+                            state.add_step(
+                                "call_tool", 
+                                tool_name=tool_name, 
+                                tool_input=tool_input, 
+                                output=str(result),
+                            )
+
+                            # Auto finalize after first successful search for small models.
+                            # Remove or increase max_tool_calls in __init__ to allow chaining
+                            #tool_calls = [s for s in state.steps if s.action == "call_tool"]
+                            #if len(tool_calls) >= self.max_too_calls:
+                                #state.final_answer = str(result)
+                                #state.status = "completed"
+                                #break
                         except Exception as e:
                             state.add_step("error", tool_name=tool_name, output=f"Tool execution failed: {e}")
                     else:
@@ -123,14 +173,19 @@ class Agent:
 
                 elif action == "finalize":
                     # Safety gate: block finalize if no tool has been called yet
-                    if not any(s.action == "call_tool" for s in state.steps):
+                    if self.tools and not any(s.action == "call_tool" for s in state.steps):
                         state.add_step("think", output="Blocked premature finalize. Forcing web_search.")
                         tool_input = {"query": prompt}
                         try:
                             result = self.tools["web_search"](**tool_input)
                             if asyncio.iscoroutine(result):
                                 result = await result
-                            state.add_step("call_tool", tool_name="web_search", tool_input=tool_input, output=str(result))
+                            state.add_step(
+                                "call_tool", 
+                                tool_name="web_search", 
+                                tool_input=tool_input, 
+                                output=str(result)
+                            )
                         except Exception as e:
                             state.add_step("error", tool_name="web_search", output=f"Tool execution failed: {e}")
                     else:
@@ -149,7 +204,9 @@ class Agent:
                 break
         
         if state.status == "running":
+            # Loop exhausted without completing - salvage last tool result.
+            last = next((s for s in reversed(state.steps) if s.action == "call_tool"), None)
+            state.final_answer = last.output if last else "Agent reached max steps without an answer."
             state.status = "completed"
-            state.final_answer = state.final_answer or "Unable to complete the task within the maximum number of steps."
 
         return state
