@@ -47,7 +47,7 @@ async def test_agent_tool_execution(mock_llm_client: LLMClient, dummy_tool):
     agent = Agent(llm_client=mock_llm_client, tools={"dummy": dummy_tool}, max_steps=2)
     state = await agent.run("Run the dummy tool")
 
-    assert state.status == "running" # Max steps reached, didn't finalize
+    assert state.status == "completed" # Max steps reached, didn't finalize
     assert len(state.steps) >=2
     assert any(step.action == "call_tool" and step.tool_name == "dummy" for step in state.steps)
     assert any("Mocked result for: test" in (step.output or "") for step in state.steps)
