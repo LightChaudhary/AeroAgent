@@ -12,6 +12,7 @@ from src.aeroagent.tracer import tracer
 
 # Import tools to trigger registration and expose the callable
 from src.aeroagent.tools.search import web_search
+from src.aeroagent.tools.memory import search_memory, save_to_memory
 
 # Enable rich, readable tracebacks for debugging
 install()
@@ -24,8 +25,12 @@ async def run_agent_cli(prompt: str) -> None:
     # 1. Initialize components
     # Note: Ensure you have pulled this model via 'ollama pull llama3.2:3b'
     llm = LLMClient(model="llama3.2:3b")
-    tools = {"web_search": web_search}
-    agent = Agent(llm_client=llm, tools=tools, max_steps=4)
+    tools = {
+        "web_search": web_search,
+        "search_memory": search_memory,
+        "save_to_memory": save_to_memory,
+        }
+    agent = Agent(llm_client=llm, tools=tools, max_steps=6)
 
     try:
         # 2. Run the agent
