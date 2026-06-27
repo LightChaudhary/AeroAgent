@@ -14,8 +14,8 @@ class Agent:
             self,
             llm_client: LLMClient,
             tools: dict[str, Callable[..., Any]] | None = None,
-            max_steps: int = 5,
-            max_tool_calls: int = 1,
+            max_steps: int = 6,
+            max_tool_calls: int = 3,
     ): 
         self.llm = llm_client
         self.tools = tools or {}
@@ -28,16 +28,22 @@ class Agent:
         state.add_step("think", output="Initializing agent loop...")
 
         system_prompt = (
-            "You are a helpful AI assistant. Follow this EXACT two-step workflow:\n\n"
-            "STEP 1: If Tool Results is 'None yet', call web_search ONCE.\n"
-            "STEP 2: If Tool Results contains ANY data, you MUST use 'finalize' immediately.\n\n"
-            "CRITICAL: Once you see Tool Results, your ONLY valid response is:\n"
-            '{"action": "finalize", "final_answer": "..."}\n\n'
-            "NEVER search again if you already have results.\n"
-            "NEVER repeat a search query that has already been used.\n\n"
+            "You are a helpful AI assistant with memory. Follow this EXACT three-step workflow:\n\n"
+            "STEP 1: ALWAYS call search_memory first to check if you already know the answer.\n"
+            "STEP 2: If memory says 'No relevant memory found', call web_search ONCE.\n"
+            "       If memory returned results, skip web_search and go directly to STEP 3.\n"
+            "STEP 3: Finalize your answer, then call save_to_memory to persist what you learned.\n\n"
+            "CRITICAL RULES:\n"
+            "- Never skip search_memory - always check memory first.\n"
+            "- Nver call web_seach if memory already has relevant results.\n"
+            "- Never call web_search more than once.\n"
+            "- Always call save_to_memory after finalizing.\n"
+            "- Once you have results (from memory OR web), your next action MUST be finalize.\n\n"
             f"Available tools: {', '.join(self.tools.keys())}\n\n"
             "JSON schemas:\n"
+            '{"action": "call_tool", "tool_name": "search_memory", "tool_input": {"query": "your query"}}\n'
             '{"action": "call_tool", "tool_name": "web_search", "tool_input": {"query": "your query"}}\n'
+            '{"action": "call_tool", "tool_name": "save_to_memory", "tool_input": {"text": "key facts to remember"}}\n'
             '{"action": "finalize", "final_answer": "your answer based on results"}\n'
         )
 
@@ -134,13 +140,13 @@ class Agent:
                         tool_input = {"query": tool_input}
 
                     # Block duplicate queries 
-                    already_searched = {
-                        s.tool_input.get("query", "")
+                    already_called={
+                        s.tool_input.get("query", "") or s.tool_input.get("text", "")
                         for s in state.steps
                         if s.action == "call_tool" and s.tool_name == tool_name
                     }
-                    new_query = tool_input.get("query", "") 
-                    if new_query in already_searched:
+                    new_input = tool_input.get("query", "") or tool_input.get("text", "")
+                    if new_input in already_called and new_input:
                         # Force finalize instead
                         #last = next((s for s in reversed(state.steps) if s.action == "call_tool"), None)
                         #state.final_answer = last.output if last else "No results found."
@@ -172,23 +178,53 @@ class Agent:
                         state.add_step("error", output=f"Tool '{tool_name}' not found.")
 
                 elif action == "finalize":
-                    # Safety gate: block finalize if no tool has been called yet
-                    if self.tools and not any(s.action == "call_tool" for s in state.steps):
-                        state.add_step("think", output="Blocked premature finalize. Forcing web_search.")
-                        tool_input = {"query": prompt}
+                    # Safety gate: must have called search_memory at minimum
+                    called_tools = [s.tool_name for s in state.steps if s.action == "call_tool"]
+                    has_memory_search = "search_memory" in called_tools
+                    has_web_search = "web_search" in called_tools
+
+                    if not has_memory_search and self.tools:
+                        # Force search_memory first
+                        state.add_step("think", output="Blocked premature finalize. Forcing search_memory.")
                         try:
-                            result = self.tools["web_search"](**tool_input)
+                            result = self.tools["search_memory"](query=prompt)
                             if asyncio.iscoroutine(result):
                                 result = await result
                             state.add_step(
-                                "call_tool", 
-                                tool_name="web_search", 
-                                tool_input=tool_input, 
-                                output=str(result)
+                                "call_tool",
+                                tool_name="search_memory",
+                                tool_input={"query": prompt},
+                                output= str(result),
                             )
                         except Exception as e:
-                            state.add_step("error", tool_name="web_search", output=f"Tool execution failed: {e}")
+                            state.add_step("error", tool_name="search_memory", output=f"Tool execution failed: {e}")
+                    
+                    elif has_memory_search and not has_memory_search:
+                        # Check if memory had a hit - if not, force web_search
+                        memory_result = next(
+                            (s.output for s in state.steps if s.tool_name == "search_memory"), ""
+                        )
+                        if "No relevant memory found" in memory_result:
+                            state.add_step("think", output="Memory miss. Forcing web_search.")
+                            try:
+                                result = self.tools["web_search"](query=prompt)
+                                if asyncio.iscoroutine(result):
+                                    result = await result
+                                state.add_step(
+                                    "call_tool",
+                                    tool_name="web_search",
+                                    tool_input={"query": prompt},
+                                    output=str(result),
+                                )
+                            except Exception as e:
+                                state.add_step("error", tool_name="web_search", output=f"Tool execution failed: {e}")
+                        else:
+                            # Memory hit - finalize directly
+                            state.final_answer = decision.get("final_answer", "Task completed.")
+                            state.status = "completed"
+                            break
                     else:
+                        # Has both memory search + web search (or memory hit) - finalize                    
                         state.final_answer = decision.get("final_answer", "Task completed.")
                         state.status = "completed"
                         break
@@ -196,7 +232,7 @@ class Agent:
                 elif action == "think":
                     think_count = sum(1 for s in state.steps if s.action == "think")
                     if think_count >= 2 and not any(s.action == "call_tool" for s in state.steps):
-                        state.add_step("think", output="Reminder: You MUST use the web_search tool for factual questions.")
+                        state.add_step("think", output="Reminder: Call search_memory first, then web_search if needed.")
 
             except Exception as e:
                 state.add_step("error", output=f"Agent loop crashed: {e}")
