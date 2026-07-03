@@ -12,7 +12,7 @@ from src.aeroagent.tracer import tracer
 
 # Import tools to trigger registration and expose the callable
 from src.aeroagent.tools.search import web_search
-from src.aeroagent.tools.memory import search_memory, save_to_memory
+from src.aeroagent.tools.memory import search_memory
 
 # Enable rich, readable tracebacks for debugging
 install()
@@ -28,7 +28,6 @@ async def run_agent_cli(prompt: str) -> None:
     tools = {
         "web_search": web_search,
         "search_memory": search_memory,
-        "save_to_memory": save_to_memory,
         }
     agent = Agent(llm_client=llm, tools=tools, max_steps=6)
 
