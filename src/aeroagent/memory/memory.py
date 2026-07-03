@@ -45,7 +45,7 @@ class MemoryManager:
     def recall(self, 
                query: str, 
                top_k: int = 3, 
-               min_relevance: float = 0.4,
+               min_relevance: float = 0.7,
             ) -> list[dict[str, Any]]:
         """
         Search memory for context relevant to the query.
