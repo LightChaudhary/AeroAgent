@@ -87,6 +87,12 @@ class Agent:
             # being forced into a JSON wrapper by response_format:json_object.
             resp = await self.llm.chat_completion_text(synthesis_messages)
             answer = resp["choices"][0]["message"]["content"].strip()
+            metrics = resp.get("_metrics") or {}
+            state.add_step(
+                "think",
+                output="Synthesis LLM call completed.",
+                latency_ms = metrics.get("latency_ms"),
+            )
             return answer if answer else "Agent gathered results but could not synthesize an answer."
         except Exception as e:
             state.add_step("error", output=f"Synthesis LLM call failed: {e}")
@@ -168,6 +174,7 @@ class Agent:
                 # 1. Get LLM decision
                 response = await self.llm.chat_completion(messages)
                 content = response["choices"][0]["message"]["content"]
+                decision_latency_ms = (response.get("_metrics") or {}).get("latency_ms")
                 print("\n===== RAW LLM OUTPUT =====")
                 print(content)
                 print("==========================\n")
@@ -189,6 +196,7 @@ class Agent:
                     ]
                     retry_response = await self.llm.chat_completion(retry_messages)
                     retry_content = retry_response["choices"][0]["message"]["content"]
+                    decision_latency_ms = (retry_response.get("_metrics") or {}).get("latency_ms")
                     decision = self.llm.extract_json(retry_content)
 
                     if not decision:
@@ -313,4 +321,5 @@ class Agent:
             state.status = "completed"
             state.add_step("finalize", output=state.final_answer)
 
+        state.aggregate_metrics()
         return state
