@@ -5,6 +5,8 @@ import asyncio
 from typing import Any
 import httpx
 
+from .observability.metrics import CallMetrics, estimate_cost, timed
+
 OLLAMA_BASE_URL = "http://localhost:11434/v1"
 DEFAULT_MODEL = "llama3.2:3b"
 
@@ -65,15 +67,39 @@ class LLMClient:
         return await self._post(payload)
 
     async def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Shared HTTP POST with retry logic."""
+        """Shared HTTP POST with retry logic.
+        
+        Attaches a `_metrics` key (latency, token countsm estimated cost) to the returned response dict. This
+        is additive: existing callers that only read `choices` are unaffected, and callers that don't care
+        about metrics can ignore the key entirely.
+        """
         for attempt in range(1, self.max_retries + 1):
             try:
-                resp = await self._client.post(
-                    f"{self.base_url}/chat/completions",
-                    json=payload,
+                with timed() as elapsed:
+                    resp = await self._client.post(
+                        f"{self.base_url}/chat/completions",
+                        json=payload,
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                latency_ms = elapsed()
+
+                usage = data.get("usage", {}) or {}
+                prompt_tokens = usage.get("prompt_tokens", 0)
+                completion_tokens = usage.get("completion_tokens", 0)
+                total_tokens = usage.get("total_tokens", prompt_tokens + completion_tokens)
+
+                metrics = CallMetrics(
+                    latency_ms=latency_ms,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    estimated_cost_usd=estimate_cost(
+                        self.model, prompt_tokens, completion_tokens
+                    ),
                 )
-                resp.raise_for_status()
-                return resp.json()
+                data["_metrics"] = metrics.to_dict()
+                return data
             except httpx.RequestError as e:
                 if attempt == self.max_retries:
                     raise RuntimeError(
