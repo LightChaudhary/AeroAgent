@@ -39,6 +39,8 @@ class AgentTracer:
             "error_message": state.error_message,
             "steps": [step.model_dump(mode="json") for step in state.steps],
             "metadata": metadata or {},
+            "prompt_version": state.prompt_version,
+            "metrics": state.metrics,
         }
 
         with open(filepath, "w", encoding="utf-8") as f:
