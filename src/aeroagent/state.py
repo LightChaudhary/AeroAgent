@@ -59,7 +59,7 @@ class AgentState(BaseModel):
         self.metrics = {
             "total_latency_ms": round(sum(latencies), 2),
             "llm_call_count": len(latencies),
-            "tool_call_count": sum(1 for s in self.steps in s.action == "call_tool"),
+            "tool_call_count": sum(1 for s in self.steps if s.action == "call_tool"),
             "step_count": len(self.steps),
         }
         return self.metrics
