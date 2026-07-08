@@ -200,8 +200,16 @@ class Agent:
                     decision = self.llm.extract_json(retry_content)
 
                     if not decision:
-                        # Can't get valid JSON — break and synthesize
-                        state.add_step("think", output="Retry also returned invalid JSON. Falling back to synthesis.")
+                        # Model still isn't producing JSON - it likely just answered conversationally
+                        # Treat its raw text as the final answer rather than discarding it via generic synthesis.
+                        raw_answer = (retry_content or content or "").strip()
+                        state.add_step(
+                            "think", 
+                            output="Retry also returned invalid JSON. Falling back to synthesis."
+                        )
+                        state.final_answer = raw_answer or "Agent could not produce a valid response."
+                        state.status = "completed"
+                        state.add_step("finalize", output=state.final_answer, latency_ms=decision_latency_ms)
                         break
 
                 # Defensive parsing: infer action if small model omitted the 'action' key
