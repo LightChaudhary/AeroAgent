@@ -9,10 +9,12 @@ to compare quality across versions.
 To introduce a new prompt variant: add a new PROMPT_V {n} constant below, register it in PROMPTS, and
 optionally bump DEFAULT_PROMPT_VERSION once it's been validated against the eval suite.
 """
+
 from __future__ import annotations
 
+
 def _build_prompt_v1(tool_names: str) -> str:
-    return(
+    return (
         "You are a helpful AI assistant with memory. Follow this EXACT workflow:\n\n"
         "STEP 1: ALWAYS call search_memory first to check existing knowledge.\n"
         "STEP 2: If memory returned 'No relevant memory found', call web_search ONCE.\n"
@@ -32,6 +34,7 @@ def _build_prompt_v1(tool_names: str) -> str:
         '{"action": "finalize", "final_answer": "your complete answer here - this field is required"}\n'
     )
 
+
 # Maps prompt version -> builder function. Each builder takes the comma-joined list of LLM-visible tool names
 # and return the full system prompt string.
 PROMPT_BUILDERS = {
@@ -40,9 +43,10 @@ PROMPT_BUILDERS = {
 
 DEFAULT_PROMPT_VERSION = "v1"
 
+
 def get_prompt(tool_names: str, version: str = DEFAULT_PROMPT_VERSION) -> str:
     """Build the system prompt for a given version.
-    
+
     Raises KeyError if the version isn't registered, so a typo'd version
     string fails loudly instead of silently falling back.
     """

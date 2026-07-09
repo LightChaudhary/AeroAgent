@@ -1,10 +1,11 @@
 """Runs the real Agent over the eval dataset and produces a scored report.
 
-This module drives actual LLM calls (both the agent and the judge), so it needs Ollama running 
+This module drives actual LLM calls (both the agent and the judge), so it needs Ollama running
 locally - unlike the unit tests, which mock LLMClient entirely. Run it directly:
 
     python -m src.aeroagent.evals.runner
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,10 +25,11 @@ from .judge import judge_case
 
 REPORT_DIR = Path("traces/evals")
 
+
 def _build_agent_tools() -> dict[str, Any]:
     """Tools available to the agent under evaluation.
-    
-    save_to_memory is deliberately excluded - it's auto-invoked by the agent loop itself, never 
+
+    save_to_memory is deliberately excluded - it's auto-invoked by the agent loop itself, never
     directy by the LLM.
     """
     return {
@@ -35,12 +37,13 @@ def _build_agent_tools() -> dict[str, Any]:
         "web_search": web_search,
     }
 
+
 async def run_eval_case(
-        agent_llm: LLMClient,
-        judge_llm: LLMClient,
-        eval_case: EvalCase,
-        prompt_version: str,
-    ) -> dict[str, Any]:
+    agent_llm: LLMClient,
+    judge_llm: LLMClient,
+    eval_case: EvalCase,
+    prompt_version: str,
+) -> dict[str, Any]:
     """Run one eval case end-to-end: agent run -> judge score -> combined record."""
     agent = Agent(
         llm_client=agent_llm,
@@ -63,12 +66,13 @@ async def run_eval_case(
         "metrics": state.metrics,
     }
 
+
 async def run_eval_suite(
     prompt_version: str = DEFAULT_PROMPT_VERSION,
-    cases : list[EvalCase] | None = None,
+    cases: list[EvalCase] | None = None,
 ) -> dict[str, Any]:
     """Run the full eval dataset sequentially and build a summary report.
-    
+
     Sequential (not concurrent) on purpose: local Ollama typically serves one request at a time efficiently,
     and sequential runs keep judge scoring easy to read in order while debugging.
     """
@@ -81,11 +85,13 @@ async def run_eval_suite(
         for case in cases:
             record = await run_eval_case(agent_llm, judge_llm, case, prompt_version)
             results.append(record)
-            print(f"[{record['case_id']}] score={record['score']} status={record['status']}")
+            print(
+                f"[{record['case_id']}] score={record['score']} status={record['status']}"
+            )
     finally:
         await agent_llm.close()
         await judge_llm.close()
-    
+
     scores = [r["score"] for r in results]
     summary = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -98,13 +104,15 @@ async def run_eval_suite(
     }
     return summary
 
+
 def save_report(summary: dict[str, Any]) -> str:
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     filepath = REPORT_DIR / f"eval_report_{timestamp}.json"
-    with open (filepath, "w", encoding="utf-8") as f:
+    with open(filepath, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
     return str(filepath)
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run AeroAgent eval suite.")
@@ -118,8 +126,11 @@ def main() -> None:
     summary = asyncio.run(run_eval_suite(prompt_version=args.prompt_version))
     filepath = save_report(summary)
 
-    print(f"\nAverage score: {summary['average_score']}/5 across {summary['case_count']} cases")
+    print(
+        f"\nAverage score: {summary['average_score']}/5 across {summary['case_count']} cases"
+    )
     print(f"Report saved to: {filepath}")
+
 
 if __name__ == "__main__":
     main()

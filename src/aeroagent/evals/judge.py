@@ -1,6 +1,6 @@
 """LLM-as-a-judge scoring for agent eval runs.
 
-Uses the same LLMClient as the agent itself (JSON mode) to score a completed AgentState against an 
+Uses the same LLMClient as the agent itself (JSON mode) to score a completed AgentState against an
 EvalCase's criteria. Scoring is 1-5:
     1 = completely wrong or unusable
     3 = partially correct or on-topic but incomplete/imprecise
@@ -9,6 +9,7 @@ EvalCase's criteria. Scoring is 1-5:
 Keep the judge prompt small and structered - small local models are inconsistent judges for anything
 beyond a simple rubric check.
 """
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
@@ -17,6 +18,7 @@ from ..llm import LLMClient
 from ..state import AgentState
 from .dataset import EvalCase
 
+
 class JudgeResult(BaseModel):
     """Structured output from the judge model for a single eval case."""
 
@@ -24,6 +26,7 @@ class JudgeResult(BaseModel):
     score: int = Field(ge=1, le=5)
     rationale: str
     raw_answer: str
+
 
 _JUDGE_SYSTEM_PROMPT = (
     "You are a strict grading assistant. You will be give a QUESTION, "
@@ -36,16 +39,17 @@ _JUDGE_SYSTEM_PROMPT = (
     "5 = fully satisfies the criteria\n\n"
     "Respond with ONLY vaild JSON, no markdown, no explanation outside the JSON:\n"
     '{"score": <1-5 integer>, "rationale": "<one or two sentence justification>"}\n'
-    )
+)
+
 
 async def judge_case(
     llm_client: LLMClient,
     eval_case: EvalCase,
-    agent_state: AgentState, 
-    ) -> JudgeResult:
+    agent_state: AgentState,
+) -> JudgeResult:
     """Score a completed agent run against its eval case criteria.
-    
-    Falls back to a score of 1 with an explanatory rationale if the judge model's output can't be parsed, 
+
+    Falls back to a score of 1 with an explanatory rationale if the judge model's output can't be parsed,
     rather than raising - a single bad judge call shouldn't crash a full eval run.
     """
     raw_answer = agent_state.final_answer or ""
@@ -77,10 +81,10 @@ async def judge_case(
             )
 
         score = int(parsed["score"])
-        score = max(1, min(5, score)) # clamp defensively
+        score = max(1, min(5, score))  # clamp defensively
 
         return JudgeResult(
-            case_id = eval_case.case_id,
+            case_id=eval_case.case_id,
             score=score,
             rationale=str(parsed.get("rationale", "")),
             raw_answer=raw_answer,

@@ -1,14 +1,16 @@
 """Async Ollama client with OpenAI-compatible API and structured JSON handling."""
+
 from __future__ import annotations
 import json
 import asyncio
 from typing import Any
 import httpx
+import os
 
 from .observability.metrics import CallMetrics, estimate_cost, timed
 
-OLLAMA_BASE_URL = "http://localhost:11434/v1"
-DEFAULT_MODEL = "llama3.2:3b"
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+DEFAULT_MODEL = os.environ.get("AEROAGENT_MODEL", "llama3.2:3b")
 
 
 class LLMClient:
@@ -68,7 +70,7 @@ class LLMClient:
 
     async def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Shared HTTP POST with retry logic.
-        
+
         Attaches a `_metrics` key (latency, token countsm estimated cost) to the returned response dict. This
         is additive: existing callers that only read `choices` are unaffected, and callers that don't care
         about metrics can ignore the key entirely.
@@ -87,7 +89,9 @@ class LLMClient:
                 usage = data.get("usage", {}) or {}
                 prompt_tokens = usage.get("prompt_tokens", 0)
                 completion_tokens = usage.get("completion_tokens", 0)
-                total_tokens = usage.get("total_tokens", prompt_tokens + completion_tokens)
+                total_tokens = usage.get(
+                    "total_tokens", prompt_tokens + completion_tokens
+                )
 
                 metrics = CallMetrics(
                     latency_ms=latency_ms,
@@ -132,7 +136,7 @@ class LLMClient:
         end = text.rfind("}")
         if start != -1 and end != -1 and end > start:
             try:
-                return json.loads(text[start:end + 1])
+                return json.loads(text[start : end + 1])
             except json.JSONDecodeError:
                 pass
 

@@ -16,12 +16,12 @@ class Agent:
     """Async AI agent that plans, routes to tools, and tracks state."""
 
     def __init__(
-            self,
-            llm_client: LLMClient,
-            tools: dict[str, Callable[..., Any]] | None = None,
-            max_steps: int = 8,
-            max_tool_calls: int = 2,
-            prompt_version: str = DEFAULT_PROMPT_VERSION,
+        self,
+        llm_client: LLMClient,
+        tools: dict[str, Callable[..., Any]] | None = None,
+        max_steps: int = 8,
+        max_tool_calls: int = 2,
+        prompt_version: str = DEFAULT_PROMPT_VERSION,
     ):
         self.llm = llm_client
         self.tools = tools or {}
@@ -45,12 +45,15 @@ class Agent:
                 output=str(result),
             )
         except Exception as e:
-            state.add_step("error", tool_name="save_to_memory", output=f"Auto-save failed: {e}")
+            state.add_step(
+                "error", tool_name="save_to_memory", output=f"Auto-save failed: {e}"
+            )
 
     async def _synthesize_answer(self, prompt: str, state: AgentState) -> str:
         """Use the LLM to synthesize a final answer from collected tool results."""
         content_steps = [
-            s for s in state.steps
+            s
+            for s in state.steps
             if s.action == "call_tool" and s.tool_name != "save_to_memory"
         ]
 
@@ -64,7 +67,7 @@ class Agent:
             if idx != -1:
                 # Centre a window around the first mention of the query
                 start = max(0, idx - 300)
-                return output[start:start + max_chars]
+                return output[start : start + max_chars]
             return output[:max_chars]
 
         results_text = "\n\n".join(
@@ -94,9 +97,13 @@ class Agent:
             state.add_step(
                 "think",
                 output="Synthesis LLM call completed.",
-                latency_ms = metrics.get("latency_ms"),
+                latency_ms=metrics.get("latency_ms"),
             )
-            return answer if answer else "Agent gathered results but could not synthesize an answer."
+            return (
+                answer
+                if answer
+                else "Agent gathered results but could not synthesize an answer."
+            )
         except Exception as e:
             state.add_step("error", output=f"Synthesis LLM call failed: {e}")
             last = content_steps[-1]
@@ -108,7 +115,9 @@ class Agent:
         state.prompt_version = self.prompt_version
         state.add_step("think", output="Initializing agent loop...")
 
-        llm_visible_tools = {k: v for k, v in self.tools.items() if k != "save_to_memory"}
+        llm_visible_tools = {
+            k: v for k, v in self.tools.items() if k != "save_to_memory"
+        }
 
         system_prompt = get_prompt(
             tool_names=", ".join(llm_visible_tools.keys()),
@@ -117,19 +126,21 @@ class Agent:
 
         for step_num in range(1, self.max_steps + 1):
             tool_steps = [
-                s for s in state.steps
+                s
+                for s in state.steps
                 if s.action == "call_tool" and s.tool_name != "save_to_memory"
             ]
 
             # Once we've hit max tool calls, force synthesis and exit
             if len(tool_steps) >= self.max_tool_calls:
-                state.add_step("think", output="Max tool calls reached. Synthesizing answer.")
+                state.add_step(
+                    "think", output="Max tool calls reached. Synthesizing answer."
+                )
                 break
 
             # Build LLM context from non-internal steps
             tool_results = "\n".join(
-                f"Tool '{s.tool_name}' returned: {s.output[:2000]}"
-                for s in tool_steps
+                f"Tool '{s.tool_name}' returned: {s.output[:2000]}" for s in tool_steps
             )
 
             # Annotate memory result so LLM knows whether to web_search
@@ -141,8 +152,8 @@ class Agent:
                 has_hit = "No relevant memory found" not in memory_step.output
                 memory_hint = (
                     "\nMEMORY STATUS: Results found — do NOT call web_search. Go straight to finalize.\n"
-                    if has_hit else
-                    "\nMEMORY STATUS: No results — call web_search once, then finalize.\n"
+                    if has_hit
+                    else "\nMEMORY STATUS: No results — call web_search once, then finalize.\n"
                 )
 
             messages = [
@@ -171,7 +182,9 @@ class Agent:
 
                 # Retry once if JSON extraction failed
                 if not decision:
-                    state.add_step("think", output="LLM returned invalid JSON. Retrying.")
+                    state.add_step(
+                        "think", output="LLM returned invalid JSON. Retrying."
+                    )
                     retry_messages = messages + [
                         {"role": "assistant", "content": content},
                         {
@@ -185,7 +198,9 @@ class Agent:
                     ]
                     retry_response = await self.llm.chat_completion(retry_messages)
                     retry_content = retry_response["choices"][0]["message"]["content"]
-                    decision_latency_ms = (retry_response.get("_metrics") or {}).get("latency_ms")
+                    decision_latency_ms = (retry_response.get("_metrics") or {}).get(
+                        "latency_ms"
+                    )
                     decision = self.llm.extract_json(retry_content)
 
                     if not decision:
@@ -193,12 +208,18 @@ class Agent:
                         # Treat its raw text as the final answer rather than discarding it via generic synthesis.
                         raw_answer = (retry_content or content or "").strip()
                         state.add_step(
-                            "think", 
-                            output="Retry also returned invalid JSON. Falling back to synthesis."
+                            "think",
+                            output="Retry also returned invalid JSON. Falling back to synthesis.",
                         )
-                        state.final_answer = raw_answer or "Agent could not produce a valid response."
+                        state.final_answer = (
+                            raw_answer or "Agent could not produce a valid response."
+                        )
                         state.status = "completed"
-                        state.add_step("finalize", output=state.final_answer, latency_ms=decision_latency_ms)
+                        state.add_step(
+                            "finalize",
+                            output=state.final_answer,
+                            latency_ms=decision_latency_ms,
+                        )
                         break
 
                 # Defensive parsing: infer action if small model omitted the 'action' key
@@ -228,11 +249,22 @@ class Agent:
                     # llama3.2:3b ignores the prompt instruction reliably, so enforce it in code.
                     if tool_name == "web_search":
                         memory_step = next(
-                            (s for s in state.steps if s.action == "call_tool" and s.tool_name == "search_memory"),
+                            (
+                                s
+                                for s in state.steps
+                                if s.action == "call_tool"
+                                and s.tool_name == "search_memory"
+                            ),
                             None,
                         )
-                        if memory_step and "No relevant memory found" not in memory_step.output:
-                            state.add_step("think", output="Blocked web_search: memory hit found. Moving to synthesis.")
+                        if (
+                            memory_step
+                            and "No relevant memory found" not in memory_step.output
+                        ):
+                            state.add_step(
+                                "think",
+                                output="Blocked web_search: memory hit found. Moving to synthesis.",
+                            )
                             break
 
                     # Block duplicate queries per tool
@@ -241,9 +273,14 @@ class Agent:
                         for s in state.steps
                         if s.action == "call_tool" and s.tool_name == tool_name
                     }
-                    new_query = tool_input.get("query", "") or tool_input.get("text", "")
+                    new_query = tool_input.get("query", "") or tool_input.get(
+                        "text", ""
+                    )
                     if new_query and new_query in already_called_queries:
-                        state.add_step("think", output=f"Blocked duplicate {tool_name} call. Moving to synthesis.")
+                        state.add_step(
+                            "think",
+                            output=f"Blocked duplicate {tool_name} call. Moving to synthesis.",
+                        )
                         break
 
                     if tool_name in self.tools:
@@ -264,16 +301,25 @@ class Agent:
                                 await self._auto_save_to_memory(str(result), state)
 
                         except Exception as e:
-                            state.add_step("error", tool_name=tool_name, output=f"Tool execution failed: {e}")
+                            state.add_step(
+                                "error",
+                                tool_name=tool_name,
+                                output=f"Tool execution failed: {e}",
+                            )
                     else:
                         state.add_step("error", output=f"Tool '{tool_name}' not found.")
 
                 elif action == "finalize":
-                    called_tools = [s.tool_name for s in state.steps if s.action == "call_tool"]
+                    called_tools = [
+                        s.tool_name for s in state.steps if s.action == "call_tool"
+                    ]
 
                     # Guard: force search_memory if it was skipped
                     if "search_memory" not in called_tools and self.tools:
-                        state.add_step("think", output="Blocked premature finalize. Forcing search_memory.")
+                        state.add_step(
+                            "think",
+                            output="Blocked premature finalize. Forcing search_memory.",
+                        )
                         try:
                             result = self.tools["search_memory"](query=prompt)
                             if asyncio.iscoroutine(result):
@@ -285,26 +331,37 @@ class Agent:
                                 output=str(result),
                             )
                         except Exception as e:
-                            state.add_step("error", tool_name="search_memory", output=f"Tool execution failed: {e}")
+                            state.add_step(
+                                "error",
+                                tool_name="search_memory",
+                                output=f"Tool execution failed: {e}",
+                            )
                         continue  # Re-enter loop to let LLM decide next step
 
                     final_answer = decision.get("final_answer", "").strip()
 
                     if not final_answer:
                         # LLM forgot to include the answer — synthesize it
-                        state.add_step("think", output="Finalize had no answer. Synthesizing from tool results.")
+                        state.add_step(
+                            "think",
+                            output="Finalize had no answer. Synthesizing from tool results.",
+                        )
                         final_answer = await self._synthesize_answer(prompt, state)
 
                     state.final_answer = final_answer
                     state.status = "completed"
-                    state.add_step("finalize", output=final_answer, latency_ms=decision_latency_ms)
+                    state.add_step(
+                        "finalize", output=final_answer, latency_ms=decision_latency_ms
+                    )
                     break
 
                 elif action == "think":
                     think_count = sum(1 for s in state.steps if s.action == "think")
                     if think_count >= 3:
                         # Stuck in think loop — break and synthesize
-                        state.add_step("think", output="Too many think steps. Moving to synthesis.")
+                        state.add_step(
+                            "think", output="Too many think steps. Moving to synthesis."
+                        )
                         break
 
             except Exception as e:
@@ -314,7 +371,10 @@ class Agent:
 
         # Fallback: if loop exhausted or broke early without a final answer
         if state.status == "running":
-            state.add_step("think", output="Loop exited without finalize. Running synthesis fallback.")
+            state.add_step(
+                "think",
+                output="Loop exited without finalize. Running synthesis fallback.",
+            )
             state.final_answer = await self._synthesize_answer(prompt, state)
             state.status = "completed"
             state.add_step("finalize", output=state.final_answer)

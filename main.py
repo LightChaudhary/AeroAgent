@@ -1,4 +1,5 @@
 """CLI entry point for the AeroAgent framework."""
+
 import asyncio
 import sys
 from rich.console import Console
@@ -17,10 +18,15 @@ from src.aeroagent.tools.memory import search_memory
 # Enable rich, readable tracebacks for debugging
 install()
 
+
 async def run_agent_cli(prompt: str) -> None:
     """Execute the agent loop and display results via CLI."""
     console = Console()
-    console.print(Panel(f"[cyan] Starting Agent with prompt:[/cyan]\n{prompt}", border_style="blue"))
+    console.print(
+        Panel(
+            f"[cyan] Starting Agent with prompt:[/cyan]\n{prompt}", border_style="blue"
+        )
+    )
 
     # 1. Initialize components
     # Note: Ensure you have pulled this model via 'ollama pull llama3.2:3b'
@@ -28,7 +34,7 @@ async def run_agent_cli(prompt: str) -> None:
     tools = {
         "web_search": web_search,
         "search_memory": search_memory,
-        }
+    }
     agent = Agent(llm_client=llm, tools=tools, max_steps=6)
 
     try:
@@ -37,21 +43,35 @@ async def run_agent_cli(prompt: str) -> None:
         state = await agent.run(prompt)
 
         # 3. Trace the execution for debugging/observability
-        trace_path = tracer.save_trace(state, metadata={"model": "llama3.2:3b", "interface": "cli"})
+        trace_path = tracer.save_trace(
+            state, metadata={"model": "llama3.2:3b", "interface": "cli"}
+        )
         console.print(f"[dim] Trace saved to: {trace_path}[/dim]")
 
         # 4. Display results
         if state.status == "completed" and state.final_answer:
-            console.print(Panel(Markdown(state.final_answer), title="Final Answer", border_style="green"))
+            console.print(
+                Panel(
+                    Markdown(state.final_answer),
+                    title="Final Answer",
+                    border_style="green",
+                )
+            )
         else:
-            console.print(Panel(state.error_message or "Agent finished without a final answer.", title="Status", border_style="yellow"))
+            console.print(
+                Panel(
+                    state.error_message or "Agent finished without a final answer.",
+                    title="Status",
+                    border_style="yellow",
+                )
+            )
 
             # Show execution steps for debugging
             console.print("\n[bold]Execution Steps:[/bold]")
             for step in state.steps:
                 detail = step.output or step.tool_name or "No detail"
                 console.print(f"    - [bold]{step.action.upper()}[/bold]: {detail}")
-    
+
     except Exception as e:
         console.print(f"[red] Fatal Error: {e}[/red]")
         raise
@@ -59,18 +79,23 @@ async def run_agent_cli(prompt: str) -> None:
         # Clean up HTTP connections
         await llm.close()
 
+
 def main() -> None:
     if len(sys.argv) < 2:
         console = Console()
-        console.print(Panel(
-            "[bold]Usage:[/bold] python main.py \"Your prompt here\"\n"
-            "[dim]Example: python main.py \"What are the new features in Python 3.13?\"[/dim]",
-            title="AeroAgent CLI", border_style="red"
-        ))
+        console.print(
+            Panel(
+                '[bold]Usage:[/bold] python main.py "Your prompt here"\n'
+                '[dim]Example: python main.py "What are the new features in Python 3.13?"[/dim]',
+                title="AeroAgent CLI",
+                border_style="red",
+            )
+        )
         sys.exit(1)
 
     prompt = " ".join(sys.argv[1:])
     asyncio.run(run_agent_cli(prompt))
+
 
 if __name__ == "__main__":
     main()
