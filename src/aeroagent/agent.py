@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 from .llm import LLMClient
+from .prompts.registry import DEFAULT_PROMPT_VERSION, get_prompt
 from .state import AgentState
 from .tools.memory import save_to_memory as _save_to_memory_backend
 
@@ -20,11 +21,13 @@ class Agent:
             tools: dict[str, Callable[..., Any]] | None = None,
             max_steps: int = 8,
             max_tool_calls: int = 2,
+            prompt_version: str = DEFAULT_PROMPT_VERSION,
     ):
         self.llm = llm_client
         self.tools = tools or {}
         self.max_steps = max_steps
         self.max_tool_calls = max_tool_calls
+        self.prompt_version = prompt_version
 
     async def _auto_save_to_memory(self, text: str, state: AgentState) -> None:
         """
@@ -87,6 +90,12 @@ class Agent:
             # being forced into a JSON wrapper by response_format:json_object.
             resp = await self.llm.chat_completion_text(synthesis_messages)
             answer = resp["choices"][0]["message"]["content"].strip()
+            metrics = resp.get("_metrics") or {}
+            state.add_step(
+                "think",
+                output="Synthesis LLM call completed.",
+                latency_ms = metrics.get("latency_ms"),
+            )
             return answer if answer else "Agent gathered results but could not synthesize an answer."
         except Exception as e:
             state.add_step("error", output=f"Synthesis LLM call failed: {e}")
@@ -96,28 +105,14 @@ class Agent:
     async def run(self, prompt: str) -> AgentState:
         """Execute the agent loop for a given prompt."""
         state = AgentState(prompt=prompt, status="running")
+        state.prompt_version = self.prompt_version
         state.add_step("think", output="Initializing agent loop...")
 
         llm_visible_tools = {k: v for k, v in self.tools.items() if k != "save_to_memory"}
 
-        system_prompt = (
-            "You are a helpful AI assistant with memory. Follow this EXACT workflow:\n\n"
-            "STEP 1: ALWAYS call search_memory first to check existing knowledge.\n"
-            "STEP 2: If memory returned 'No relevant memory found', call web_search ONCE.\n"
-            "        If memory returned useful results, skip to STEP 3.\n"
-            "STEP 3: Once you have results (from memory OR web_search), you MUST finalize.\n\n"
-            "CRITICAL RULES:\n"
-            "- NEVER skip search_memory.\n"
-            "- NEVER call web_search more than once.\n"
-            "- NEVER call save_to_memory — it is handled automatically.\n"
-            "- After gathering results, ALWAYS output a finalize action with your answer.\n"
-            "- The 'final_answer' field is REQUIRED in the finalize action.\n\n"
-            f"Available tools: {', '.join(llm_visible_tools.keys())}\n\n"
-            "Respond with ONLY valid JSON — no markdown, no explanation, no extra text.\n\n"
-            "JSON schemas:\n"
-            '{"action": "call_tool", "tool_name": "search_memory", "tool_input": {"query": "your query"}}\n'
-            '{"action": "call_tool", "tool_name": "web_search", "tool_input": {"query": "your query"}}\n'
-            '{"action": "finalize", "final_answer": "your complete answer here — this field is required"}\n'
+        system_prompt = get_prompt(
+            tool_names=", ".join(llm_visible_tools.keys()),
+            version=self.prompt_version,
         )
 
         for step_num in range(1, self.max_steps + 1):
@@ -168,6 +163,7 @@ class Agent:
                 # 1. Get LLM decision
                 response = await self.llm.chat_completion(messages)
                 content = response["choices"][0]["message"]["content"]
+                decision_latency_ms = (response.get("_metrics") or {}).get("latency_ms")
                 print("\n===== RAW LLM OUTPUT =====")
                 print(content)
                 print("==========================\n")
@@ -189,11 +185,20 @@ class Agent:
                     ]
                     retry_response = await self.llm.chat_completion(retry_messages)
                     retry_content = retry_response["choices"][0]["message"]["content"]
+                    decision_latency_ms = (retry_response.get("_metrics") or {}).get("latency_ms")
                     decision = self.llm.extract_json(retry_content)
 
                     if not decision:
-                        # Can't get valid JSON — break and synthesize
-                        state.add_step("think", output="Retry also returned invalid JSON. Falling back to synthesis.")
+                        # Model still isn't producing JSON - it likely just answered conversationally
+                        # Treat its raw text as the final answer rather than discarding it via generic synthesis.
+                        raw_answer = (retry_content or content or "").strip()
+                        state.add_step(
+                            "think", 
+                            output="Retry also returned invalid JSON. Falling back to synthesis."
+                        )
+                        state.final_answer = raw_answer or "Agent could not produce a valid response."
+                        state.status = "completed"
+                        state.add_step("finalize", output=state.final_answer, latency_ms=decision_latency_ms)
                         break
 
                 # Defensive parsing: infer action if small model omitted the 'action' key
@@ -251,6 +256,7 @@ class Agent:
                                 tool_name=tool_name,
                                 tool_input=tool_input,
                                 output=str(result),
+                                latency_ms=decision_latency_ms,
                             )
 
                             # Auto-save web search results to memory
@@ -291,7 +297,7 @@ class Agent:
 
                     state.final_answer = final_answer
                     state.status = "completed"
-                    state.add_step("finalize", output=final_answer)
+                    state.add_step("finalize", output=final_answer, latency_ms=decision_latency_ms)
                     break
 
                 elif action == "think":
@@ -313,4 +319,5 @@ class Agent:
             state.status = "completed"
             state.add_step("finalize", output=state.final_answer)
 
+        state.aggregate_metrics()
         return state

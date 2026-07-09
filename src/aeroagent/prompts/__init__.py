@@ -1,0 +1,1 @@
+"""Versioned prompt registry for the AeroAgent framework."""
