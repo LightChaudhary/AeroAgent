@@ -12,7 +12,10 @@ from .memory import MemoryManager, memory
 from .store import MemoryStore, store
 
 __all__ = [
-    "Embedder", "embedder",
-    "MemoryManager", "memory",
-    "MemoryStore", "store",
+    "Embedder",
+    "embedder",
+    "MemoryManager",
+    "memory",
+    "MemoryStore",
+    "store",
 ]

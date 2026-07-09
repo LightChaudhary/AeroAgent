@@ -1,13 +1,15 @@
 """Local JSON trace logger for agent execution debugging and observability."""
+
 from __future__ import annotations
 import json
-import os 
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .state import AgentState
+
 
 class AgentTracer:
     """Handles writing agent execution traces to local JSON files."""
@@ -19,8 +21,13 @@ class AgentTracer:
     def generate_trace_id(self) -> str:
         """Generate a unique ID for single agent run."""
         return f"trace_{uuid.uuid4().hex[:8]}"
-    
-    def save_trace(self, state: AgentState, trace_id: str | None = None,  metadata: dict[str, Any] | None = None) -> str:
+
+    def save_trace(
+        self,
+        state: AgentState,
+        trace_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
         """
         Serialize and save the agent state to a JSON file.
         Returns the path to the saved trace file.
@@ -47,6 +54,7 @@ class AgentTracer:
             json.dump(trace_data, f, indent=2, ensure_ascii=False)
 
         return str(filepath)
+
 
 # Global tracer instance
 tracer = AgentTracer()

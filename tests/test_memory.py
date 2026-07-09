@@ -19,6 +19,7 @@ from src.aeroagent.memory.memory import MemoryManager
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def embedder() -> Embedder:
     """Shared embedder instance — loaded once for the whole module."""
@@ -28,7 +29,9 @@ def embedder() -> Embedder:
 @pytest.fixture()
 def store(tmp_path) -> MemoryStore:
     """Fresh in-process MemoryStore backed by a temp directory."""
-    s = MemoryStore(persist_dir=str(tmp_path / "chroma"), collection_name="test_collection")
+    s = MemoryStore(
+        persist_dir=str(tmp_path / "chroma"), collection_name="test_collection"
+    )
     yield s
     s.clear()
     # Explicitly close ChromaDB client to release file handles
@@ -42,7 +45,9 @@ def manager(tmp_path) -> MemoryManager:
     from src.aeroagent.memory.store import MemoryStore
 
     _embedder = Embedder()
-    _store = MemoryStore(persist_dir=str(tmp_path / "chroma"), collection_name="test_manager")
+    _store = MemoryStore(
+        persist_dir=str(tmp_path / "chroma"), collection_name="test_manager"
+    )
 
     m = MemoryManager()
     m._embedder = _embedder
@@ -57,8 +62,8 @@ def manager(tmp_path) -> MemoryManager:
 # Embedder tests
 # ---------------------------------------------------------------------------
 
-class TestEmbedder:
 
+class TestEmbedder:
     def test_encode_returns_list(self, embedder):
         vector = embedder.encode("hello world")
         assert isinstance(vector, list)
@@ -97,8 +102,8 @@ class TestEmbedder:
 # MemoryStore tests
 # ---------------------------------------------------------------------------
 
-class TestMemoryStore:
 
+class TestMemoryStore:
     def _make_vector(self) -> list[float]:
         return [0.0] * EMBEDDING_DIM
 
@@ -148,7 +153,9 @@ class TestMemoryStore:
         vector = embedder.encode(text)
         store.add(text=text, vector=vector)
 
-        hits = store.query(vector=embedder.encode("machine learning"), min_relevance=0.0)
+        hits = store.query(
+            vector=embedder.encode("machine learning"), min_relevance=0.0
+        )
         assert hits
         assert "text" in hits[0]
         assert "score" in hits[0]
@@ -165,14 +172,23 @@ class TestMemoryStore:
 
     def test_query_min_relevance_filters(self, store, embedder):
         store.add(text="apple fruit", vector=embedder.encode("apple fruit"))
-        hits = store.query(vector=embedder.encode("quantum physics"), min_relevance=0.99)
+        hits = store.query(
+            vector=embedder.encode("quantum physics"), min_relevance=0.99
+        )
         assert hits == []
 
     def test_query_sorted_by_score_descending(self, store, embedder):
-        store.add(text="Python 3.13 release", vector=embedder.encode("Python 3.13 release"))
-        store.add(text="banana smoothie recipe", vector=embedder.encode("banana smoothie recipe"))
+        store.add(
+            text="Python 3.13 release", vector=embedder.encode("Python 3.13 release")
+        )
+        store.add(
+            text="banana smoothie recipe",
+            vector=embedder.encode("banana smoothie recipe"),
+        )
 
-        hits = store.query(vector=embedder.encode("Python release"), min_relevance=0.0, top_k=2)
+        hits = store.query(
+            vector=embedder.encode("Python release"), min_relevance=0.0, top_k=2
+        )
         if len(hits) > 1:
             assert hits[0]["score"] >= hits[1]["score"]
 
@@ -193,8 +209,8 @@ class TestMemoryStore:
 # MemoryManager tests
 # ---------------------------------------------------------------------------
 
-class TestMemoryManager:
 
+class TestMemoryManager:
     def test_remember_returns_id(self, manager):
         doc_id = manager.remember("Python 3.13 was released in October 2024")
         assert doc_id.startswith("mem_")

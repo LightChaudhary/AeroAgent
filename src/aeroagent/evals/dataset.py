@@ -1,12 +1,14 @@
 """Eval case definitions and a small starter dataset for the agent.
 
-Each EvalCase pairs a prompt with a rubric the judge model uses to score the agent's response. Keep 
+Each EvalCase pairs a prompt with a rubric the judge model uses to score the agent's response. Keep
 criteria short and checkable - the judge is a small local model too, so vague or compound criteria
 produce noisy scores.
 """
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
+
 
 class EvalCase(BaseModel):
     """A single test case for the eval harness."""
@@ -21,6 +23,7 @@ class EvalCase(BaseModel):
         default="general",
         description="Rough grouping for reporting, e.g. 'factual', 'memory', 'ambiguous'.",
     )
+
 
 EVAL_CASES: list[EvalCase] = [
     EvalCase(

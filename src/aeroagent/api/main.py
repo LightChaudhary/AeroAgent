@@ -5,6 +5,7 @@ Run locally with:
 
 Requires Ollama running locally, same as the CLI.
 """
+
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -30,6 +31,7 @@ __llm_client: LLMClient | None = None
 # gets a tighter limit than the default.
 limiter = Limiter(key_func=get_remote_address)
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global __llm_client
@@ -37,7 +39,8 @@ async def lifespan(app: FastAPI):
     yield
     if __llm_client is not None:
         await __llm_client.close()
-    
+
+
 app = FastAPI(
     title="AeroAgent API",
     description="REST interface for the AeroAgent async agent framework.",
@@ -48,6 +51,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+
 def _build_tools() -> dict[str, Any]:
     """Tools available to the agent. save_to_memory is auto-invoked, not exposed."""
     return {
@@ -55,16 +59,18 @@ def _build_tools() -> dict[str, Any]:
         "web_search": web_search,
     }
 
+
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     return HealthResponse(status="ok", model=DEFAULT_MODEL)
+
 
 @app.post("/run", response_model=RunResponse)
 @limiter.limit("10/minute")
 async def run_agent(request: Request, body: RunRequest) -> RunResponse:
     if __llm_client is None:
         raise HTTPException(status_code=503, detail="LLM client not initialized.")
-    
+
     agent = Agent(
         llm_client=__llm_client,
         tools=_build_tools(),
@@ -77,7 +83,7 @@ async def run_agent(request: Request, body: RunRequest) -> RunResponse:
         state = await agent.run(body.prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent run failed: {e}")
-    
+
     trace_id = tracer.generate_trace_id()
     tracer.save_trace(state, trace_id=trace_id, metadata={"interface": "api"})
 
