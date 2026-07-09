@@ -10,7 +10,7 @@ This is not a notebook experiment. It's built like a real system: type-safe stat
 |--------|--------|
 | Phase 1 — Core Loop & Tooling | Complete |
 | Phase 2 — Memory & Context | Complete |
-| Phase 3 — Evaluation & Observability | In Progress |
+| Phase 3 — Evaluation & Observability | Complete |
 | Phase 4 — Productionization | Upcoming |
 | Phase 5 — Domain Specialization | Future |
 
@@ -240,7 +240,7 @@ ruff check .
 |---|---|---|---|
 | 1 | **Core Loop and Tooling** | Async state machine, Pydantic validation, Ollama client, DuckDuckGo search tool, local JSON tracing, pytest mocking | Complete |
 | 2 | **Memory and Context** | Modular embeddings (sentence-transformers), persistent vector storage (ChromaDB), `save_to_memory` and `search_memory tools` | Complete |
-| 3 | **Evaluation and Observability** | LLM-as-a-judge evals, latency/cost tracking, structured logging, prompt versioning | In Progress |
+| 3 | **Evaluation and Observability** | LLM-as-a-judge evals, latency/cost tracking, structured logging, prompt versioning | Complete |
 | 4 | **Productionization** | FastAPI wrapper, Docker Compose (App + Ollama + ChromaDB), GitHub Actions CI/CD, rate limiting | Upcoming |
 | 5 | **Domain Specialization (optional)** | Finance data tool (e.g. Yahoo Finance API) or a simple recommender microservice | Future |
 
