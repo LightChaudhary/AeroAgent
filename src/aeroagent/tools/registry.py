@@ -1,10 +1,10 @@
 """Type-safe tool registry and execution wrapper."""
 
 from __future__ import annotations
+
 import inspect
-import asyncio
-from typing import Any, Callable
-from pydantic import ValidationError
+from collections.abc import Callable
+from typing import Any
 
 from ..state import ToolSchema
 
@@ -44,7 +44,6 @@ class ToolRegistry:
         if not tool:
             raise ValueError(f"Tool '{name}' not found in registry.")
 
-        schema = tool["schema"]
         func = tool["func"]
 
         # TODO (Phase 2): Build a dynamic Pydantic model from schema.parameters and validate kwargs against it.
@@ -53,7 +52,7 @@ class ToolRegistry:
         # Validate inputs against the tool's parameter schema
         validated_kwargs = kwargs
 
-        # Execute (handle both sync ana=d async functions)
+        # Execute (handle both sync and async functions)
         result = func(**validated_kwargs)
         if inspect.iscoroutine(result):
             return await result

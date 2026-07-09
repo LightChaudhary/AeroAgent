@@ -1,14 +1,13 @@
 """ChromaDB persistent vector store for AeroAgent memory."""
 
 from __future__ import annotations
+
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import chromadb
 from chromadb.config import Settings
-
-from .embedder import EMBEDDING_DIM
 
 CHROMA_PERSIST_DIR = "data/memory"
 COLLECTION_NAME = "aeroagent_memory"
@@ -63,7 +62,7 @@ class MemoryStore:
         doc_id = doc_id or f"mem_{content_hash}"
 
         meta = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             **(metadata or {}),
         }
 
@@ -101,6 +100,7 @@ class MemoryStore:
             results["documents"][0],
             results["metadatas"][0],
             results["distances"][0],
+            strict=True,
         ):
             # ChromaDB cosine distance: 0 = identical, 2 = opposite
             # Convert to similarity: 1 = identical, 0 = opposite

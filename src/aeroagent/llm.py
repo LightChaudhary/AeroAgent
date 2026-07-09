@@ -1,11 +1,13 @@
 """Async Ollama client with OpenAI-compatible API and structured JSON handling."""
 
 from __future__ import annotations
-import json
+
 import asyncio
-from typing import Any
-import httpx
+import json
 import os
+from typing import Any
+
+import httpx
 
 from .observability.metrics import CallMetrics, estimate_cost, timed
 

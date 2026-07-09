@@ -1,7 +1,9 @@
 """Free, async web search tool using DuckDuckGo."""
 
 from __future__ import annotations
+
 import asyncio
+
 from ddgs import DDGS
 
 from .registry import registry

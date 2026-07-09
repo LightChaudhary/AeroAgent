@@ -1,6 +1,7 @@
 """Sentence-transformer embedding wrapper for AeroAgent memory."""
 
 from __future__ import annotations
+
 import torch
 from sentence_transformers import SentenceTransformer
 

@@ -1,10 +1,10 @@
 """Local JSON trace logger for agent execution debugging and observability."""
 
 from __future__ import annotations
+
 import json
-import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -33,13 +33,13 @@ class AgentTracer:
         Returns the path to the saved trace file.
         """
         trace_id = trace_id or self.generate_trace_id()
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         filename = f"{timestamp}_{trace_id}.json"
         filepath = self.trace_dir / filename
 
         trace_data = {
             "trace_id": trace_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "status": state.status,
             "prompt": state.prompt,
             "final_answer": state.final_answer,
