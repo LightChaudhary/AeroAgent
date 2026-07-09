@@ -30,6 +30,12 @@ def sample_eval_case() -> EvalCase:
         category="factual",
     )
 
+@pytest.fixture
+def sample_agent_state() -> AgentState:
+    state = AgentState(prompt="What is the capital of France?", status="completed")
+    state.final_answer = "Paris is the capital of France."
+    return state
+
 # --- EvalCase / dataset tests ---
 def test_eval_requires_core_fields():
     """EvalCase should reject construction without required fields."""
