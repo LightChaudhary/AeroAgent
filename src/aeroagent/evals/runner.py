@@ -47,7 +47,7 @@ async def run_eval_case(
         tools=_build_agent_tools(),
         prompt_version=prompt_version,
     )
-    state = await agent.rin(eval_case.prompt)
+    state = await agent.run(eval_case.prompt)
     result = await judge_case(judge_llm, eval_case, state)
 
     return {
