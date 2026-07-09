@@ -264,6 +264,7 @@ The long-term objective is a production-ready AI agent featuring:
 | Limited RAM | Running an LLM, embedding model, and vector DB together can cause memory pressure / OOM on machines with 8GB RAM | Lightweight stack (small local model plus `all-MiniLM-L6-v2` embeddings, ~80MB) and `OLLAMA_KEEP_ALIVE=5m` to unload the model between uses |
 | Tool execution hangs | Network calls (e.g. web search) can time out or get rate-limited | Tools run in `asyncio.to_thread` with explicit `httpx` timeouts and retry logic in the tool registry |
 | Vector search noise | Local embedding models are less nuanced than large hosted embeddings | Metadata is stored alongside vectors, and results are returned with explicit relevance scores for the LLM to weigh |
+| Stale memory blocks fresh lookups | The agent hard-blocks `web_search` whenever `search_memory` returns any hit, regardless of how old or time-sensitive the cached result is | Caught via the Phase 3 eval suite (`current_events_001`);currently tracked as a known gap rather than fixed, since it requires memory entries to carry freshness/recency metadata-candidate for a future phase |
 
 > **Note**
 >
