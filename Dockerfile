@@ -26,4 +26,4 @@ ENV AEROAGENT_MODEL="llama3.2:3b"
 
 EXPOSE 8000
 
-CMD ["uvicorn", "src.aeroagent.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "aeroagent.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
