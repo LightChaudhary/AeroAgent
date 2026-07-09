@@ -1,0 +1,26 @@
+# Version control
+.git
+.gitignore
+
+# Python
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.pytest_cache
+.ruff_cache
+
+# Runtime-generated, should not be baked into the image
+traces/
+memory_db/
+data/
+
+# OS / editor cruft
+.DS_Store
+.vscode
+.idea
+
+# Docs and misc
+README.md
+LICENSE
