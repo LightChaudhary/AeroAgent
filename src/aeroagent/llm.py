@@ -4,11 +4,12 @@ import json
 import asyncio
 from typing import Any
 import httpx
+import os
 
 from .observability.metrics import CallMetrics, estimate_cost, timed
 
-OLLAMA_BASE_URL = "http://localhost:11434/v1"
-DEFAULT_MODEL = "llama3.2:3b"
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+DEFAULT_MODEL = os.environ.get("AEROAGENT_MODEL", "llama3.2:3b")
 
 
 class LLMClient:
