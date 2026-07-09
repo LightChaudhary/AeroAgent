@@ -124,7 +124,7 @@ class Agent:
             version=self.prompt_version,
         )
 
-        for step_num in range(1, self.max_steps + 1):
+        for _step_num in range(1, self.max_steps + 1):
             tool_steps = [
                 s
                 for s in state.steps

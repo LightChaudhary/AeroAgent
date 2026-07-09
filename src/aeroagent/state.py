@@ -1,9 +1,11 @@
 """Pydantic v2 state models for the AeroAgent framework."""
 
 from __future__ import annotations
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 from typing import Any, Literal
-from pydantic import BaseModel, field_validator, Field, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ToolSchema(BaseModel):
@@ -30,7 +32,7 @@ class AgentStep(BaseModel):
     tool_name: str | None = None
     tool_input: dict[str, Any] | None = None
     output: str | None = None
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     latency_ms: float | None = None
 
 

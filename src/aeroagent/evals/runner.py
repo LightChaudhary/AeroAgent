@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -94,7 +94,7 @@ async def run_eval_suite(
 
     scores = [r["score"] for r in results]
     summary = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "prompt_version": prompt_version,
         "case_count": len(results),
         "average_score": round(sum(scores) / len(scores), 2) if scores else 0.0,
@@ -107,7 +107,7 @@ async def run_eval_suite(
 
 def save_report(summary: dict[str, Any]) -> str:
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     filepath = REPORT_DIR / f"eval_report_{timestamp}.json"
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)

@@ -2,18 +2,19 @@
 
 import asyncio
 import sys
+
 from rich.console import Console
-from rich.panel import Panel
 from rich.markdown import Markdown
+from rich.panel import Panel
 from rich.traceback import install
 
-from src.aeroagent.llm import LLMClient
 from src.aeroagent.agent import Agent
-from src.aeroagent.tracer import tracer
+from src.aeroagent.llm import LLMClient
+from src.aeroagent.tools.memory import search_memory
 
 # Import tools to trigger registration and expose the callable
 from src.aeroagent.tools.search import web_search
-from src.aeroagent.tools.memory import search_memory
+from src.aeroagent.tracer import tracer
 
 # Enable rich, readable tracebacks for debugging
 install()

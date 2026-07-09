@@ -1,12 +1,13 @@
 """Automated tests for the async agent loop and tool execution."""
 
 from __future__ import annotations
-import pytest
-from unittest.mock import AsyncMock, patch
 
-from src.aeroagent.llm import LLMClient
+from unittest.mock import AsyncMock
+
+import pytest
+
 from src.aeroagent.agent import Agent
-from src.aeroagent.state import AgentState
+from src.aeroagent.llm import LLMClient
 
 
 # --- Fixtures ---

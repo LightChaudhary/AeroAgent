@@ -11,9 +11,8 @@ from __future__ import annotations
 import pytest
 
 from src.aeroagent.memory.embedder import EMBEDDING_DIM, Embedder
-from src.aeroagent.memory.store import MemoryStore
 from src.aeroagent.memory.memory import MemoryManager
-
+from src.aeroagent.memory.store import MemoryStore
 
 # ---------------------------------------------------------------------------
 # Fixtures

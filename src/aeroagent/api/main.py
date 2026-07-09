@@ -101,7 +101,7 @@ async def run_agent(request: Request, body: RunRequest) -> RunResponse:
     try:
         state = await agent.run(body.prompt)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Agent run failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Agent run failed: {e}") from e
 
     trace_id = tracer.generate_trace_id()
     tracer.save_trace(state, trace_id=trace_id, metadata={"interface": "api"})

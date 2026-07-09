@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .registry import registry
 from ..memory.memory import memory
+from .registry import registry
 
 
 @registry.register(

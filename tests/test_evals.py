@@ -6,9 +6,10 @@ the test suite.
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
 from pydantic import ValidationError
-from unittest.mock import AsyncMock
 
 from src.aeroagent.evals.dataset import EVAL_CASES, EvalCase
 from src.aeroagent.evals.judge import judge_case
