@@ -10,7 +10,11 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from ..agent import Agent
 from ..llm import DEFAULT_MODEL, LLMClient
@@ -21,6 +25,10 @@ from .schemas import HealthResponse, RunRequest, RunResponse, StepOut
 
 # Single shared LLMClient for the app's lifetime, closed cleanly on shutdown.
 __llm_client: LLMClient | None = None
+
+# Per-client-IP rate limiting. /run is the expensive endpoint (real LLM calls, tool execution) so it
+# gets a tighter limit than the default.
+limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,6 +45,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 def _build_tools() -> dict[str, Any]:
     """Tools available to the agent. save_to_memory is auto-invoked, not exposed."""
     return {
@@ -49,20 +60,21 @@ async def health() -> HealthResponse:
     return HealthResponse(status="ok", model=DEFAULT_MODEL)
 
 @app.post("/run", response_model=RunResponse)
-async def run_agent(request: RunRequest) -> RunResponse:
+@limiter.limit("10/minute")
+async def run_agent(request: Request, body: RunRequest) -> RunResponse:
     if __llm_client is None:
         raise HTTPException(status_code=503, detail="LLM client not initialized.")
     
     agent = Agent(
         llm_client=__llm_client,
         tools=_build_tools(),
-        max_steps=request.max_steps,
-        max_tool_calls=request.max_tool_calls,
-        prompt_version=request.prompt_version,
+        max_steps=body.max_steps,
+        max_tool_calls=body.max_tool_calls,
+        prompt_version=body.prompt_version,
     )
 
     try:
-        state = await agent.run(request.prompt)
+        state = await agent.run(body.prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent run failed: {e}")
     
