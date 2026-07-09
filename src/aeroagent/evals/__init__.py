@@ -1,0 +1,1 @@
+"""Evaluation harness: eval cases, LLM-as-a-judge scoring, and run reports."""
