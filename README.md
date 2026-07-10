@@ -11,7 +11,7 @@ This is not a notebook experiment. It's built like a real system: type-safe stat
 | Phase 1 — Core Loop & Tooling | Complete |
 | Phase 2 — Memory & Context | Complete |
 | Phase 3 — Evaluation & Observability | Complete |
-| Phase 4 — Productionization | Upcoming |
+| Phase 4 — Productionization | Complete |
 | Phase 5 — Domain Specialization | Future |
 
 ---
@@ -42,7 +42,7 @@ Core engineering principles:
 - **Build** — Clean, type-safe, asynchronous Python (`asyncio`, `Pydantic v2`)
 - **Debug** — Structured execution traces and an automated test suite
 - **Explain** — Strict JSON schemas with graceful fallbacks when small local models fail to follow them
-- **Deploy** *(upcoming)* — Containerized deployment with a documented REST API
+- **Deploy**  — Containerized deployment with a documented REST API, verified on every push via CI
 
 ---
 
@@ -102,33 +102,55 @@ JSON Trace + Final Answer
 The repository structure (`git ls-files`) is shown below. Runtime-generated directories are listed separately.
 
 ```text
-.
-├── LICENSE
-├── README.md
-├── main.py                    # CLI entry point
-├── pyproject.toml             # Package metadata, deps, ruff/pytest config
-├── requirements.txt           # Pinned deps (see note below)
-├── src/aeroagent/
-│   ├── __init__.py
-│   ├── agent.py                # Async state machine and defensive routing
-│   ├── llm.py                  # Ollama async client
-│   ├── state.py                # Pydantic v2 models (AgentState, ToolSchema)
-│   ├── tracer.py                # Local JSON execution logger
-│   ├── memory/
-│   │   ├── __init__.py
-│   │   ├── embedder.py          # Sentence-transformers wrapper
-│   │   ├── memory.py            # MemoryManager composition
-│   │   └── store.py             # ChromaDB read/write
-│   └── tools/
-│       ├── __init__.py
-│       ├── memory.py            # `save_to_memory` and `search_memory` tools
-│       ├── registry.py          # Type-safe tool execution wrapper
-│       └── search.py            # Async DuckDuckGo search tool
-└── tests/
-    ├── __init__.py
-    ├── test_agent.py            # Agent init, tool routing, defensive parsing
-    ├── test_agent_loop.py       # Agent loop behavior
-    └── test_memory.py           # Memory stack tests
+ .
+ ├── LICENSE
+ ├── README.md
+ ├── Dockerfile
+ ├── docker-compose.yml
+ ├── .dockerignore
+ ├── .github/
+ │   └── workflows/
+ │       └── ci.yml              # Lint, test, and Docker build on push/PR
+ ├── main.py                    # CLI entry point
+ ├── pyproject.toml             # Package metadata, deps, ruff/pytest config
+ ├── requirements.txt           # Pinned deps (see note below)
+ ├── src/aeroagent/
+ │   ├── __init__.py
+ │   ├── agent.py                # Async state machine and defensive routing
+ │   ├── llm.py                  # Ollama async client
+ │   ├── state.py                # Pydantic v2 models (AgentState, ToolSchema)
+ │   ├── tracer.py                # Local JSON execution logger
+ │   ├── api/
+ │   │   ├── __init__.py
+ │   │   ├── main.py              # FastAPI app: /run, /health, rate limiting
+ │   │   └── schemas.py           # Request/response models
+ │   ├── observability/
+ │   │   ├── __init__.py
+ │   │   └── metrics.py           # Latency, token, and cost tracking
+ │   ├── prompts/
+ │   │   ├── __init__.py
+ │   │   └── registry.py          # Versioned system prompts
+ │   ├── evals/
+ │   │   ├── __init__.py
+ │   │   ├── dataset.py           # EvalCase model and starter dataset
+ │   │   ├── judge.py             # LLM-as-a-judge scoring
+ │   │   └── runner.py            # Eval suite runner and report generator
+ │   ├── memory/
+ │   │   ├── __init__.py
+ │   │   ├── embedder.py          # Sentence-transformers wrapper
+ │   │   ├── memory.py            # MemoryManager composition
+ │   │   └── store.py             # ChromaDB read/write
+ │   └── tools/
+ │       ├── __init__.py
+ │       ├── memory.py            # `save_to_memory` and `search_memory` tools
+ │       ├── registry.py          # Type-safe tool execution wrapper
+ │       └── search.py            # Async DuckDuckGo search tool
+ └── tests/
+     ├── __init__.py
+     ├── test_agent.py            # Agent init, tool routing, defensive parsing
+     ├── test_agent_loop.py       # Agent loop behavior
+     ├── test_evals.py            # Eval harness offline tests
+     └── test_memory.py           # Memory stack tests
 ```
 Generated at runtime and excluded from version control via `.gitignore`:
 
@@ -213,6 +235,50 @@ python main.py "Summarize the latest news on local LLM quantization"
 
 ---
 
+## Running with Docker
+
+The full stack (app + Ollama) can run in containers via Docker Compose — no local Python environment or Ollama install needed.
+
+### First-time setup
+
+```bash
+# Start Ollama first and pull the model into the container
+docker compose up -d ollama
+docker exec aeroagent-ollama ollama pull llama3.2:3b
+
+# Build and start the full stack
+docker compose up -d --build
+```
+
+### Usage
+
+Once running, the agent is available as a REST API on `http://localhost:8000`:
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# Run the agent
+curl -X POST http://localhost:8000/run \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What is the capital of France?"}'
+```
+
+Interactive API docs (via FastAPI's auto-generated Swagger UI): `http://localhost:8000/docs`
+
+The `/run` endpoint is rate-limited to 10 requests/minute per client IP.
+
+Traces are written to `./traces` on the host (bind-mounted); memory persists in a named Docker volume across restarts.
+
+### Stopping
+
+```bash
+docker compose down          # stop containers, keep volumes (models, memory)
+docker compose down -v       # stop and wipe volumes too
+```
+
+--- 
+
 ## Running Tests
 Run tests:
 
@@ -220,11 +286,12 @@ Run tests:
 pytest
 ```
 
-The test suite uses `pytest-asyncio` and mocks `LLMClient.chat_completion`, so it runs fully offline without needing Ollama up, split across three files:
+The test suite uses `pytest-asyncio` and mocks `LLMClient.chat_completion`, so it runs fully offline without needing Ollama up, split across four files:
 
 - `test_agent.py` — agent initialization, tool routing, and defensive parsing of plain-text (non-JSON) LLM output.
 - `test_agent_loop.py` — agent loop control flow.
 - `test_memory.py` — memory stack behavior.
+- `test_evals.py` - EvalCase Validation and LLM-as-a-judge scoring logic.
 
 Lint with:
 
@@ -234,6 +301,17 @@ ruff check .
 
 ---
 
+## Continuous Integration
+
+Every push and pull request to `main` runs through GitHub Actions (`.github/workflows/ci.yml`):
+
+1. **Lint** — `ruff check .` and `ruff format --check .`
+2. **Test** — full `pytest` suite (runs after lint passes)
+3. **Docker build** — builds the app image and runs a basic import sanity check (runs after tests pass), using GitHub Actions' cache backend to keep rebuilds fast despite heavy dependencies like `torch` and `chromadb`
+
+The Docker build step does not push the image anywhere yet — it only verifies the image builds and starts correctly.
+---
+
 ## Roadmap
 
 | Phase | Name | Focus & Deliverables | Status |
@@ -241,7 +319,7 @@ ruff check .
 | 1 | **Core Loop and Tooling** | Async state machine, Pydantic validation, Ollama client, DuckDuckGo search tool, local JSON tracing, pytest mocking | Complete |
 | 2 | **Memory and Context** | Modular embeddings (sentence-transformers), persistent vector storage (ChromaDB), `save_to_memory` and `search_memory tools` | Complete |
 | 3 | **Evaluation and Observability** | LLM-as-a-judge evals, latency/cost tracking, structured logging, prompt versioning | Complete |
-| 4 | **Productionization** | FastAPI wrapper, Docker Compose (App + Ollama + ChromaDB), GitHub Actions CI/CD, rate limiting | Upcoming |
+| 4 | **Productionization** | FastAPI wrapper, Docker Compose (App + Ollama), GitHub Actions CI/CD (lint, test, Docker build), rate limiting | Complete |
 | 5 | **Domain Specialization (optional)** | Finance data tool (e.g. Yahoo Finance API) or a simple recommender microservice | Future |
 
 ### End goal
@@ -264,7 +342,7 @@ The long-term objective is a production-ready AI agent featuring:
 | Limited RAM | Running an LLM, embedding model, and vector DB together can cause memory pressure / OOM on machines with 8GB RAM | Lightweight stack (small local model plus `all-MiniLM-L6-v2` embeddings, ~80MB) and `OLLAMA_KEEP_ALIVE=5m` to unload the model between uses |
 | Tool execution hangs | Network calls (e.g. web search) can time out or get rate-limited | Tools run in `asyncio.to_thread` with explicit `httpx` timeouts and retry logic in the tool registry |
 | Vector search noise | Local embedding models are less nuanced than large hosted embeddings | Metadata is stored alongside vectors, and results are returned with explicit relevance scores for the LLM to weigh |
-| Stale memory blocks fresh lookups | The agent hard-blocks `web_search` whenever `search_memory` returns any hit, regardless of how old or time-sensitive the cached result is | Caught via the Phase 3 eval suite (`current_events_001`);currently tracked as a known gap rather than fixed, since it requires memory entries to carry freshness/recency metadata-candidate for a future phase |
+| Stale memory blocks fresh lookups | The agent hard-blocks `web_search` whenever `search_memory` returns any hit, regardless of how old or time-sensitive the cached result is | Caught via the Phase 3 eval suite (`current_events_001`); currently tracked as a known gap rather than fixed, since it requires memory entries to carry freshness/recency metadata - candidate for a future phase |
 
 > **Note**
 >
