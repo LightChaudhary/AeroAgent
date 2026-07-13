@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from ..memory.memory import memory
 from .registry import registry
 
@@ -16,7 +18,7 @@ async def search_memory(query: str) -> str:
     Search persistent memory for relevant context.
     Returns formatted results ready for LLM consumption.
     """
-    result = memory.format_recall(query=query, top_k=3)
+    result = await asyncio.to_thread(memory.format_recall, query=query, top_k=3)
     return result
 
 
@@ -33,5 +35,5 @@ async def save_to_memory(text: str) -> str:
     if not text or not text.strip():
         return "Nothing saved - empty text provided."
 
-    doc_id = memory.remember(text=text)
+    doc_id = await asyncio.to_thread(memory.remember, text=text)
     return f"Saved to memory (id={doc_id}): {text[:80]}..."

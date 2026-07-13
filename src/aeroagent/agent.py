@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -10,6 +11,8 @@ from .llm import LLMClient
 from .prompts.registry import DEFAULT_PROMPT_VERSION, get_prompt
 from .state import AgentState
 from .tools.memory import save_to_memory as _save_to_memory_backend
+
+logger = logging.getLogger(__name__)
 
 
 class Agent:
@@ -175,9 +178,7 @@ class Agent:
                 response = await self.llm.chat_completion(messages)
                 content = response["choices"][0]["message"]["content"]
                 decision_latency_ms = (response.get("_metrics") or {}).get("latency_ms")
-                print("\n===== RAW LLM OUTPUT =====")
-                print(content)
-                print("==========================\n")
+                logger.debug("RAW LLM OUTPUT: %s", content)
                 decision = self.llm.extract_json(content)
 
                 # Retry once if JSON extraction failed
@@ -285,9 +286,11 @@ class Agent:
 
                     if tool_name in self.tools:
                         try:
-                            result = self.tools[tool_name](**tool_input)
-                            if asyncio.iscoroutine(result):
-                                result = await result
+                            _raw = self.tools[tool_name](**tool_input)
+                            if asyncio.iscoroutine(_raw):
+                                result = await _raw
+                            else:
+                                result = _raw
                             state.add_step(
                                 "call_tool",
                                 tool_name=tool_name,
@@ -321,9 +324,11 @@ class Agent:
                             output="Blocked premature finalize. Forcing search_memory.",
                         )
                         try:
-                            result = self.tools["search_memory"](query=prompt)
-                            if asyncio.iscoroutine(result):
-                                result = await result
+                            _raw = self.tools["search_memory"](query=prompt)
+                            if asyncio.iscoroutine(_raw):
+                                result = await _raw
+                            else:
+                                result = _raw
                             state.add_step(
                                 "call_tool",
                                 tool_name="search_memory",

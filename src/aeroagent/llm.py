@@ -113,9 +113,11 @@ class LLMClient:
                     ) from e
                 await asyncio.sleep(1.5 * attempt)
             except httpx.HTTPStatusError as e:
-                raise RuntimeError(
-                    f"LLM returned {e.response.status_code}: {e.response.text}"
-                ) from e
+                if attempt == self.max_retries or e.response.status_code < 500:
+                    raise RuntimeError(
+                        f"LLM returned {e.response.status_code}: {e.response.text}"
+                    ) from e
+                await asyncio.sleep(1.5 * attempt)
 
     @staticmethod
     def extract_json(text: str) -> dict[str, Any] | None:

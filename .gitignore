@@ -15,5 +15,6 @@ build/
 # Project Specific
 traces/
 .env
-.DS_Storedata/
+.DS_Store
+data/
 data/

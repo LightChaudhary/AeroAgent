@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from datetime import UTC, datetime
@@ -22,7 +23,12 @@ class AgentTracer:
         """Generate a unique ID for single agent run."""
         return f"trace_{uuid.uuid4().hex[:8]}"
 
-    def save_trace(
+    def _write_trace(self, filepath: Path, trace_data: dict[str, Any]) -> None:
+        """Synchronous file write, called via asyncio.to_thread from save_trace."""
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(trace_data, f, indent=2, ensure_ascii=False)
+
+    async def save_trace(
         self,
         state: AgentState,
         trace_id: str | None = None,
@@ -50,8 +56,7 @@ class AgentTracer:
             "metrics": state.metrics,
         }
 
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(trace_data, f, indent=2, ensure_ascii=False)
+        await asyncio.to_thread(self._write_trace, filepath, trace_data)
 
         return str(filepath)
 
