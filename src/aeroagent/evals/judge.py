@@ -6,7 +6,7 @@ EvalCase's criteria. Scoring is 1-5:
     3 = partially correct or on-topic but incomplete/imprecise
     5 = fully satisfies the criteria
 
-Keep the judge prompt small and structered - small local models are inconsistent judges for anything
+Keep the judge prompt small and structured - small local models are inconsistent judges for anything
 beyond a simple rubric check.
 """
 
@@ -37,7 +37,7 @@ _JUDGE_SYSTEM_PROMPT = (
     "3 = partially correct or on-topic but incomplete or imprecise\n"
     "4 = mostly correct with minor issues\n"
     "5 = fully satisfies the criteria\n\n"
-    "Respond with ONLY vaild JSON, no markdown, no explanation outside the JSON:\n"
+    "Respond with ONLY valid JSON, no markdown, no explanation outside the JSON:\n"
     '{"score": <1-5 integer>, "rationale": "<one or two sentence justification>"}\n'
 )
 

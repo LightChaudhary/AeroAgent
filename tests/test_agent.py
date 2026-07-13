@@ -66,7 +66,7 @@ async def test_agent_tool_execution(mock_llm_client: LLMClient, dummy_tool):
 
 
 @pytest.mark.asyncio
-async def test_agent_denfensive_parsing_plain_test(mock_llm_client: LLMClient):
+async def test_agent_defensive_parsing_plain_text(mock_llm_client: LLMClient):
     """Test that the agent gracefully handles non-JSON LLM output."""
     # Force the LLM to return plain text (simulating a small model failing JSON schema)
     mock_llm_client.chat_completion.return_value = {

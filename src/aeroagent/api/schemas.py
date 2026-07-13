@@ -16,7 +16,11 @@ from ..prompts.registry import DEFAULT_PROMPT_VERSION
 class RunRequest(BaseModel):
     """Incoming request body for POST /run."""
 
-    prompt: str = Field(min_length=1, description="The user's natural-language prompt.")
+    prompt: str = Field(
+        min_length=1,
+        max_length=10_000,
+        description="The user's natural-language prompt.",
+    )
     prompt_version: str = Field(
         default=DEFAULT_PROMPT_VERSION,
         description="Which registered system prompt version to use.",

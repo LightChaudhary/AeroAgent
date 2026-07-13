@@ -9,7 +9,7 @@ from rich.panel import Panel
 from rich.traceback import install
 
 from src.aeroagent.agent import Agent
-from src.aeroagent.llm import LLMClient
+from src.aeroagent.llm import DEFAULT_MODEL, LLMClient
 from src.aeroagent.tools.memory import search_memory
 
 # Import tools to trigger registration and expose the callable
@@ -31,7 +31,7 @@ async def run_agent_cli(prompt: str) -> None:
 
     # 1. Initialize components
     # Note: Ensure you have pulled this model via 'ollama pull llama3.2:3b'
-    llm = LLMClient(model="llama3.2:3b")
+    llm = LLMClient(model=DEFAULT_MODEL)
     tools = {
         "web_search": web_search,
         "search_memory": search_memory,
@@ -44,8 +44,8 @@ async def run_agent_cli(prompt: str) -> None:
         state = await agent.run(prompt)
 
         # 3. Trace the execution for debugging/observability
-        trace_path = tracer.save_trace(
-            state, metadata={"model": "llama3.2:3b", "interface": "cli"}
+        trace_path = await tracer.save_trace(
+            state, metadata={"model": DEFAULT_MODEL, "interface": "cli"}
         )
         console.print(f"[dim] Trace saved to: {trace_path}[/dim]")
 

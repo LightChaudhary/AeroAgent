@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install deps first for better layer caching
 COPY pyproject.toml ./
 COPY src ./src
-RUN pip install --no-cache-dir -e.
+RUN pip install --no-cache-dir .
 
 # App code
 COPY main.py ./
